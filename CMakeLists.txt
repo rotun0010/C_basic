@@ -18,7 +18,9 @@ file(GLOB_RECURSE SOURCES
     "src/*.c"
 )
 
-add_executable(msvc_cli ${SOURCES})
+add_executable(msvc_cli ${SOURCES}
+ 
+)
 
 target_link_libraries(msvc_cli PRIVATE Kernel32 Winmm)
 
