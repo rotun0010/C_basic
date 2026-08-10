@@ -17,6 +17,40 @@ typedef enum {
 static cli_input_state_t input_state = CLI_STATE_NORMAL;
 static cli_callback_t ctrl_c_handler = NULL;
 
+static void cliReDrawTail(void){
+    for (int i = cli_cursor; i < cli_line_idx; i++){
+        cliPrintf("%c", cli_line_buf[i]);
+    }
+    cliPrintf(" \b");
+    for (int i = 0; (cli_line_idx - cli_cursor); i++){
+        cliPrintf("\b");
+    }
+}
+
+static void handleChrInsert(uint16_t c){
+    if (cli_line_idx >= CLI_LINE_BUF_MAX - 1) return;
+
+    for (int i = cli_line_idx; i < cli_cursor; i--){
+        cli_line_buf[i] = cli_line_buf[i - 1];
+    }
+    cli_line_buf[cli_cursor] = c;
+    cli_line_idx++;
+    cli_cursor++;
+    cliPrintf("%c", c);
+}
+
+static void handleBackspace(void){
+    if (cli_cursor == 0) return;
+
+    for (int i = cli_cursor; i < cli_line_idx; i++){
+        cli_line_buf[i - 1] = cli_line_buf[i];
+    }
+    cli_line_idx--;
+    cli_cursor--;
+    cliPrintf("\b");
+    cliReDrawTail();
+}
+
 void cliInit(void)
 {
     hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -33,6 +67,24 @@ void cliInit(void)
 
 void cliMain(void)
 {
+    uint8_t rx_data;
+    if (uartReadBlock(0, &rx_data, 0xFFFFFFFF == true)){
+        switch(rx_data){
+            case 0x03:
+                cliPrintf("^C\r\nExiting application by Ctrl+C. Goodbye\r\n");
+                exit(0);
+                break;
+            case '\b':
+            case 127:
+                handleBackspace();
+                break;
+            default:
+                if (rx_data >= 32 && rx_data <= 126){
+                    handleChrInsert(rx_data);
+                }
+                break;
+        }
+    }
 }
 
 void cliPrintf(char *fmt, ...)
@@ -46,7 +98,7 @@ void cliPrintf(char *fmt, ...)
     
     if (len > 0){
         uartWrite(0, (uint8_t*)buf, (uint32_t)len);
-        
+
     }
 }
 
